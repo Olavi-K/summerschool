@@ -1,37 +1,47 @@
-#include <cstdio>
-#include <vector>
 #include <mpi.h>
 
-int main(int argc, char *argv[])
-{
-    int rank, ntasks, nrecv;
-    constexpr int arraysize = 100000;
-    constexpr int msgsize = 100;
-    std::vector<int> message(arraysize);
-    std::vector<int> receiveBuffer(arraysize);
-    MPI_Status status;
+#include <cstdio>
+#include <vector>
 
-    MPI_Init(&argc, &argv);
-    MPI_Comm_size(MPI_COMM_WORLD, &ntasks);
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+int main(int argc, char *argv[]) {
+  int rank, ntasks, nrecv;
+  constexpr int arraysize = 100000;
+  constexpr int msgsize = 100;
+  std::vector<int> message(arraysize);
+  std::vector<int> receiveBuffer(arraysize);
+  MPI_Status status;
 
-    // Initialize message and receive buffer
-    for (int i = 0; i < arraysize; i++) {
-        message[i] = rank;
-        receiveBuffer[i] = -1;
-    }
+  MPI_Init(&argc, &argv);
+  MPI_Comm_size(MPI_COMM_WORLD, &ntasks);
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    // TODO: Implement sending and receiving as defined in the assignment
-    // Send msgsize elements from the array "message", and receive into
-    // "receiveBuffer"
-    if (rank == 0) {
+  // Initialize message and receive buffer
+  for (int i = 0; i < arraysize; i++) {
+    message[i] = rank;
+    receiveBuffer[i] = -1;
+  }
 
-        printf("Rank %i received %i elements, first %i\n", rank, nrecv, receiveBuffer[0]);
-    } else if (rank == 1) {
+  // TODO: Implement sending and receiving as defined in the assignment
+  // Send msgsize elements from the array "message", and receive into
+  // "receiveBuffer"
 
-        printf("Rank %i received %i elements, first %i\n", rank, nrecv, receiveBuffer[0]);
-    }
+  if (rank == 0) {
+    MPI_Send(message.data(), msgsize, MPI_INT, 1, 0, MPI_COMM_WORLD);
+    MPI_Recv(receiveBuffer.data(), arraysize, MPI_INT, 1, 1, MPI_COMM_WORLD,
+             &status);
+    MPI_Get_count(&status, MPI_INT, &nrecv);
 
-    MPI_Finalize();
-    return 0;
+    printf("Rank %i received %i elements, first %i\n", rank, nrecv,
+           receiveBuffer[0]);
+  } else if (rank == 1) {
+    MPI_Recv(receiveBuffer.data(), arraysize, MPI_INT, 0, 0, MPI_COMM_WORLD,
+             &status);
+    MPI_Get_count(&status, MPI_INT, &nrecv);
+    MPI_Send(message.data(), msgsize, MPI_INT, 0, 1, MPI_COMM_WORLD);
+    printf("Rank %i received %i elements, first %i\n", rank, nrecv,
+           receiveBuffer[0]);
+  }
+
+  MPI_Finalize();
+  return 0;
 }

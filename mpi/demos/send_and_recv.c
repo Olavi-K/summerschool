@@ -1,8 +1,7 @@
-#include <stdio.h>
 #include <mpi.h>
+#include <stdio.h>
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
   int size, rank;
   MPI_Init(&argc, &argv);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
@@ -22,7 +21,6 @@ int main(int argc, char *argv[])
     MPI_Status status;
     MPI_Recv(&data, 1, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD, &status);
     printf("Rank %d received %f\n", rank, data);
-
   }
 
   MPI_Finalize();
