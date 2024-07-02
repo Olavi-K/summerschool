@@ -1,32 +1,38 @@
-#include <cstdio>
 #include <omp.h>
 
-int main(void)
-{
-    int array[4] = {0, 0, 0, 0};
-    int tid;
+#include <cstdio>
 
-    printf("Array at the beginning: ");
-    for (int i=0; i < 4; i++) {
-         printf("%d ", array[i]);
+int main(void) {
+  int array[4] = {0, 0, 0, 0};
+  int tid;
+
+  printf("Array at the beginning: ");
+  for (int i = 0; i < 4; i++) {
+    printf("%d ", array[i]);
+  }
+  printf("\n");
+
+// TODO: launch threads and create tasks so that there
+// one task per loop iteration
+#pragma omp parallel private(tid) shared(array)
+#pragma omp single
+  {
+    for (int i = 0; i < 4; i++) {
+#pragma omp task
+      {
+        tid = omp_get_thread_num();
+        printf("Task %d executed by thread %d\n", i, tid);
+        array[i] += tid;
+      }
     }
-    printf("\n");
+  }
+  // TODO end
 
-    // TODO: launch threads and create tasks so that there 
-    // one task per loop iteration 
-    for (int i=0; i < 4; i++) {
-           tid = omp_get_thread_num();
-           printf("Task %d executed by thread %d\n", i, tid);
-           array[i] += tid;
-    }
+  printf("Array at the end: ");
+  for (int i = 0; i < 4; i++) {
+    printf("%d ", array[i]);
+  }
+  printf("\n");
 
-    // TODO end
-
-    printf("Array at the end: ");
-    for (int i=0; i < 4; i++) {
-         printf("%d ", array[i]);
-    }
-    printf("\n");
-
-    return 0;
+  return 0;
 }

@@ -1,9 +1,9 @@
 /* Heat equation solver in 2D. */
 
-#include <string>
-#include <iostream>
-#include <iomanip>
 #include <chrono>
+#include <iomanip>
+#include <iostream>
+#include <string>
 
 #include "heat.hpp"
 
@@ -13,85 +13,83 @@
 
 double wtime();
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
+  const int image_interval = 100;  // Image output interval
 
-    const int image_interval = 100;    // Image output interval
+  int nsteps;  // Number of time steps
 
-    int nsteps;                 // Number of time steps
+  int num_threads = 1;
 
-    int num_threads = 1;
-
-    Field current, previous;    // Current and previous temperature fields
+  Field current, previous;  // Current and previous temperature fields
 
 #pragma omp parallel
   {
-
 #ifdef _OPENMP
-    #pragma omp master
+#pragma omp master
     num_threads = omp_get_num_threads();
 #endif
 
     initialize(argc, argv, current, previous, nsteps);
 
-    // Output the initial field
-    #pragma omp single
+// Output the initial field
+#pragma omp single
     {
-    write_field(current, 0);
+      write_field(current, 0);
 
-    auto average_temp = average(current);
-    std::cout << "Simulation parameters: " 
-              << "rows: " << current.nx_full << " columns: " << current.ny_full
-              << " time steps: " << nsteps << std::endl;
-    std::cout << "Number of OpenMP threads: " << num_threads << std::endl;
-    std::cout << std::fixed << std::setprecision(6);
-    std::cout << "Average temperature at start: " << average_temp << std::endl;
-    } // omp end single
-    
-    const double a = 0.5;     // Diffusion constant 
+      auto average_temp = average(current);
+      std::cout << "Simulation parameters: " << "rows: " << current.nx_full
+                << " columns: " << current.ny_full << " time steps: " << nsteps
+                << std::endl;
+      std::cout << "Number of OpenMP threads: " << num_threads << std::endl;
+      std::cout << std::fixed << std::setprecision(6);
+      std::cout << "Average temperature at start: " << average_temp
+                << std::endl;
+    }  // omp end single
+
+    const double a = 0.5;  // Diffusion constant
     auto dx2 = current.dx * current.dx;
     auto dy2 = current.dy * current.dy;
-    // Largest stable time step 
+    // Largest stable time step
     auto dt = dx2 * dy2 / (2.0 * a * (dx2 + dy2));
 
-    //Get the start time stamp 
+    // Get the start time stamp
     auto start_clock = wtime();
 
     // Time evolve
     for (int iter = 1; iter <= nsteps; iter++) {
-        evolve(current, previous, a, dt);
-        #pragma omp single
-        {
+      evolve(current, previous, a, dt);
+#pragma omp single
+      {
         if (iter % image_interval == 0) {
-            write_field(current, iter);
+          write_field(current, iter);
         }
         // Swap current field so that it will be used
         // as previous for next iteration step
         std::swap(current, previous);
-        } // omp end single
+      }  // omp end single
     }
 
     auto stop_clock = wtime();
 
-    #pragma omp master
+#pragma omp master
     {
-    // Average temperature for reference 
-    auto average_temp = average(previous);
-    std::cout << "Iteration took " << (stop_clock - start_clock)
-              << " seconds." << std::endl;
-    std::cout << "Average temperature: " << average_temp << std::endl;
-    if (1 == argc) {
-      std::cout << "Reference value with default arguments: " 
-                << 59.281239 << std::endl;
-    }
-    } // omp end master
+      // Average temperature for reference
+      auto average_temp = average(previous);
+      std::cout << "Iteration took " << (stop_clock - start_clock)
+                << " seconds." << std::endl;
+      std::cout << "Average temperature: " << average_temp << std::endl;
+      if (1 == argc) {
+        std::cout << "Reference value with default arguments: " << 59.281239
+                  << std::endl;
+      }
+    }  // omp end master
 
-  } // omp end parallel
+  }  // omp end parallel
 
-    // Output the final field
-    write_field(previous, nsteps);
+  // Output the final field
+  write_field(previous, nsteps);
 
-     return 0;
+  return 0;
 }
 
 double wtime() {

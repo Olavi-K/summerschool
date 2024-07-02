@@ -1,0 +1,49 @@
+Legend:
+
+  A - recognized idiom
+  D - deleted loop
+  I - callee inlined here
+  L - interleaved loop
+  M - multithreaded
+  P - peeled loop
+  S - distributed loop
+  U - completely unrolled loop
+  u - partially unrolled loop
+  V - vectorized loop
+  X - loop interchanged with enclosing loop
+  Z - versioned loop for LICM
+  + - additional messages below
+
+----------
+
+ 1.              #include <stdio.h>
+ 2.              
+ 3.              #define NX 102400
+ 4.              
+ 5.              int main(void) {
+ 6.                double vecA[NX], vecB[NX];
+ 7.              
+ 8.                // Initialization of the vectors
+ 9.                for (int i = 0; i < NX; i++) {
+10.                  vecA[i] = 1.0 / ((double)(NX - i));
+11.                  vecB[i] = vecA[i] * vecA[i];
+12.                }
+13.              
+14.                // TODO start: offload and parallelize the computation
+15.                double res = 0.0;
+16.   I 0------< #pragma omp target teams distribute parallel for map(to : vecA) map(to : vecB) \
+17.   I 0 1--<>>     reduction(+ : res)
+18. +   M------<   for (int i = 0; i < NX; i++) {
+19.     M            res += vecA[i] * vecB[i];
+20.     M------>   }
+21.              
+22.                // TODO end
+23.              
+24.                printf("Dot product: %18.16f\n", res);
+25.              
+26.                return 0;
+27.              }
+
+----------
+
+18. Outlined parallel region

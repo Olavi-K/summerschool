@@ -1,17 +1,16 @@
+#include <hip/hip_runtime.h>
+#include <time.h>
+
 #include <cstdio>
 #include <cstring>
-#include <time.h>
-#include <hip/hip_runtime.h>
 
 /* Blocksize divisible by the warp size */
 #define BLOCKSIZE 64
 
 /* GPU kernel definition */
-__global__ void hipKernel(int* const A, const int nx, const int ny)
-{
+__global__ void hipKernel(int *const A, const int nx, const int ny) {
   const int idx = blockIdx.x * blockDim.x + threadIdx.x;
-  if (idx < nx * ny)
-  {
+  if (idx < nx * ny) {
     const int i = idx % nx;
     const int j = idx / nx;
     A[j * nx + i] += idx;
@@ -19,24 +18,23 @@ __global__ void hipKernel(int* const A, const int nx, const int ny)
 }
 
 /* Auxiliary function to check the results */
-void checkResults(int* const A, const int nx, const int ny, const std::string strategy, const double timing)
-{
+void checkResults(int *const A, const int nx, const int ny,
+                  const std::string strategy, const double timing) {
   // Check that the results are correct
   int errored = 0;
-  for(unsigned int i = 0; i < nx * ny; i++)
-    if(A[i] != i)
-      errored = 1;
+  for (unsigned int i = 0; i < nx * ny; i++)
+    if (A[i] != i) errored = 1;
 
   // Indicate if the results are correct
-  if(errored)
-    printf("The results are incorrect! (%.3fs - %s)\n", timing, strategy.c_str());
+  if (errored)
+    printf("The results are incorrect! (%.3fs - %s)\n", timing,
+           strategy.c_str());
   else
     printf("The results are OK! (%.3fs - %s)\n", timing, strategy.c_str());
 }
 
 /* Run using explicit memory management */
-void explicitMem(int nSteps, int nx, int ny)
-{
+void explicitMem(int nSteps, int nx, int ny) {
   // Determine grid size
   const int gridsize = (nx * ny - 1 + BLOCKSIZE) / BLOCKSIZE;
 
@@ -44,15 +42,14 @@ void explicitMem(int nSteps, int nx, int ny)
   size_t size = nx * ny * sizeof(int);
 
   // Allocate pageable host memory
-  A = (int*)malloc(size);
+  A = (int *)malloc(size);
 
   // Allocate pinned device memory
-  hipMalloc((void**)&d_A, size);
+  hipMalloc((void **)&d_A, size);
 
   // Start timer and begin stepping loop
   clock_t tStart = clock();
-  for(unsigned int i = 0; i < nSteps; i++)
-  {
+  for (unsigned int i = 0; i < nSteps; i++) {
     /* The order of calls inside this loop represent a common
      * workflow of a GPU accelerated program:
      * Accessing the array from host,
@@ -67,9 +64,7 @@ void explicitMem(int nSteps, int nx, int ny)
     hipMemcpy(d_A, A, size, hipMemcpyHostToDevice);
 
     // Launch GPU kernel
-    hipLaunchKernelGGL(hipKernel,
-      gridsize, BLOCKSIZE, 0, 0,
-      d_A, nx, ny);
+    hipLaunchKernelGGL(hipKernel, gridsize, BLOCKSIZE, 0, 0, d_A, nx, ny);
 
     // Synchronization
     hipStreamSynchronize(0);
@@ -80,7 +75,8 @@ void explicitMem(int nSteps, int nx, int ny)
 
   // Check results and print timings
   clock_t tStop = clock();
-  checkResults(A, nx, ny, "ExplicitMemCopy", (double)(tStop - tStart) / CLOCKS_PER_SEC);
+  checkResults(A, nx, ny, "ExplicitMemCopy",
+               (double)(tStop - tStart) / CLOCKS_PER_SEC);
 
   // Free device array
   hipFree(d_A);
@@ -90,8 +86,7 @@ void explicitMem(int nSteps, int nx, int ny)
 }
 
 /* Run using explicit memory management and pinned host allocations */
-void explicitMemPinned(int nSteps, int nx, int ny)
-{
+void explicitMemPinned(int nSteps, int nx, int ny) {
   // Determine grid size
   const int gridsize = (nx * ny - 1 + BLOCKSIZE) / BLOCKSIZE;
 
@@ -99,15 +94,14 @@ void explicitMemPinned(int nSteps, int nx, int ny)
   size_t size = nx * ny * sizeof(int);
 
   // Allocate pinned host memory
-  hipHostMalloc((void**)&A, size);
+  hipHostMalloc((void **)&A, size);
 
   // Allocate pinned device memory
-  hipMalloc((void**)&d_A, size);
+  hipMalloc((void **)&d_A, size);
 
   // Start timer and begin stepping loop
   clock_t tStart = clock();
-  for(unsigned int i = 0; i < nSteps; i++)
-  {
+  for (unsigned int i = 0; i < nSteps; i++) {
     /* The order of calls inside this loop represent a common
      * workflow of a GPU accelerated program:
      * Accessing the array from host,
@@ -122,9 +116,7 @@ void explicitMemPinned(int nSteps, int nx, int ny)
     hipMemcpy(d_A, A, size, hipMemcpyHostToDevice);
 
     // Launch GPU kernel
-    hipLaunchKernelGGL(hipKernel,
-      gridsize, BLOCKSIZE, 0, 0,
-      d_A, nx, ny);
+    hipLaunchKernelGGL(hipKernel, gridsize, BLOCKSIZE, 0, 0, d_A, nx, ny);
 
     // Synchronization
     hipStreamSynchronize(0);
@@ -135,7 +127,8 @@ void explicitMemPinned(int nSteps, int nx, int ny)
 
   // Check results and print timings
   clock_t tStop = clock();
-  checkResults(A, nx, ny, "ExplicitMemPinnedCopy", (double)(tStop - tStart) / CLOCKS_PER_SEC);
+  checkResults(A, nx, ny, "ExplicitMemPinnedCopy",
+               (double)(tStop - tStart) / CLOCKS_PER_SEC);
 
   // Free device array
   hipFree(d_A);
@@ -144,9 +137,9 @@ void explicitMemPinned(int nSteps, int nx, int ny)
   hipHostFree(A);
 }
 
-/* Run using explicit memory management without recurring host/device memcopies */
-void explicitMemNoCopy(int nSteps, int nx, int ny)
-{
+/* Run using explicit memory management without recurring host/device memcopies
+ */
+void explicitMemNoCopy(int nSteps, int nx, int ny) {
   // Determine grid size
   const int gridsize = (nx * ny - 1 + BLOCKSIZE) / BLOCKSIZE;
 
@@ -154,15 +147,14 @@ void explicitMemNoCopy(int nSteps, int nx, int ny)
   size_t size = nx * ny * sizeof(int);
 
   // Allocate pageable host memory
-  A = (int*)malloc(size);
+  A = (int *)malloc(size);
 
   // Allocate pinned device memory
-  hipMalloc((void**)&d_A, size);
+  hipMalloc((void **)&d_A, size);
 
   // Start timer and begin stepping loop
   clock_t tStart = clock();
-  for(unsigned int i = 0; i < nSteps; i++)
-  {
+  for (unsigned int i = 0; i < nSteps; i++) {
     /* The order of calls inside this loop represent an optimal
      * workflow of a GPU accelerated program where all oprations
      * are performed using device (ie, recurring memcopy is avoided):
@@ -173,9 +165,7 @@ void explicitMemNoCopy(int nSteps, int nx, int ny)
     hipMemset(d_A, 0, size);
 
     // Launch GPU kernel
-    hipLaunchKernelGGL(hipKernel,
-      gridsize, BLOCKSIZE, 0, 0,
-      d_A, nx, ny);
+    hipLaunchKernelGGL(hipKernel, gridsize, BLOCKSIZE, 0, 0, d_A, nx, ny);
   }
 
   // Copy data back to host
@@ -186,7 +176,8 @@ void explicitMemNoCopy(int nSteps, int nx, int ny)
 
   // Check results and print timings
   clock_t tStop = clock();
-  checkResults(A, nx, ny, "ExplicitMemNoCopy", (double)(tStop - tStart) / CLOCKS_PER_SEC);
+  checkResults(A, nx, ny, "ExplicitMemNoCopy",
+               (double)(tStop - tStart) / CLOCKS_PER_SEC);
 
   // Free device array
   hipFree(d_A);
@@ -196,8 +187,7 @@ void explicitMemNoCopy(int nSteps, int nx, int ny)
 }
 
 /* Run using Unified Memory */
-void unifiedMem(int nSteps, int nx, int ny)
-{
+void unifiedMem(int nSteps, int nx, int ny) {
   // Determine grid size
   const int gridsize = (nx * ny - 1 + BLOCKSIZE) / BLOCKSIZE;
 
@@ -205,12 +195,11 @@ void unifiedMem(int nSteps, int nx, int ny)
   size_t size = nx * ny * sizeof(int);
 
   // Allocate Unified Memory
-  hipMallocManaged((void**)&A, size);
+  hipMallocManaged((void **)&A, size);
 
   // Start timer and begin stepping loop
   clock_t tStart = clock();
-  for(unsigned int i = 0; i < nSteps; i++)
-  {
+  for (unsigned int i = 0; i < nSteps; i++) {
     /* The order of calls inside this loop represent
      * a common workflow of a GPU accelerated program:
      * Accessing the array from host,
@@ -222,9 +211,7 @@ void unifiedMem(int nSteps, int nx, int ny)
     memset(A, 0, size);
 
     // Launch GPU kernel
-    hipLaunchKernelGGL(hipKernel,
-      gridsize, BLOCKSIZE, 0, 0,
-      A, nx, ny);
+    hipLaunchKernelGGL(hipKernel, gridsize, BLOCKSIZE, 0, 0, A, nx, ny);
 
     // Synchronization
     hipStreamSynchronize(0);
@@ -232,15 +219,15 @@ void unifiedMem(int nSteps, int nx, int ny)
 
   // Check results and print timings
   clock_t tStop = clock();
-  checkResults(A, nx, ny, "UnifiedMemNoPrefetch", (double)(tStop - tStart) / CLOCKS_PER_SEC);
+  checkResults(A, nx, ny, "UnifiedMemNoPrefetch",
+               (double)(tStop - tStart) / CLOCKS_PER_SEC);
 
   // Free Unified Memory array
   hipFree(A);
 }
 
 /* Run using Unified Memory and prefetching */
-void unifiedMemPrefetch(int nSteps, int nx, int ny)
-{
+void unifiedMemPrefetch(int nSteps, int nx, int ny) {
   // Determine grid size
   const int gridsize = (nx * ny - 1 + BLOCKSIZE) / BLOCKSIZE;
 
@@ -252,12 +239,11 @@ void unifiedMemPrefetch(int nSteps, int nx, int ny)
   size_t size = nx * ny * sizeof(int);
 
   // Allocate Unified Memory
-  hipMallocManaged((void**)&A, size);
+  hipMallocManaged((void **)&A, size);
 
   // Start timer and begin stepping loop
   clock_t tStart = clock();
-  for(unsigned int i = 0; i < nSteps; i++)
-  {
+  for (unsigned int i = 0; i < nSteps; i++) {
     /* The order of calls inside this loop represent a common
      * workflow of a GPU accelerated program:
      * Accessing the array from host,
@@ -272,9 +258,7 @@ void unifiedMemPrefetch(int nSteps, int nx, int ny)
     hipMemPrefetchAsync(A, size, device, 0);
 
     // Launch GPU kernel
-    hipLaunchKernelGGL(hipKernel,
-      gridsize, BLOCKSIZE, 0, 0,
-      A, nx, ny);
+    hipLaunchKernelGGL(hipKernel, gridsize, BLOCKSIZE, 0, 0, A, nx, ny);
 
     // Synchronization
     hipStreamSynchronize(0);
@@ -288,15 +272,15 @@ void unifiedMemPrefetch(int nSteps, int nx, int ny)
 
   // Check results and print timings
   clock_t tStop = clock();
-  checkResults(A, nx, ny, "UnifiedMemPrefetch", (double)(tStop - tStart) / CLOCKS_PER_SEC);
+  checkResults(A, nx, ny, "UnifiedMemPrefetch",
+               (double)(tStop - tStart) / CLOCKS_PER_SEC);
 
   // Free Unified Memory array
   hipFree(A);
 }
 
 /* Run using Unified Memory without recurring host/device memcopies */
-void unifiedMemNoCopy(int nSteps, int nx, int ny)
-{
+void unifiedMemNoCopy(int nSteps, int nx, int ny) {
   // Determine grid size
   const int gridsize = (nx * ny - 1 + BLOCKSIZE) / BLOCKSIZE;
 
@@ -308,12 +292,11 @@ void unifiedMemNoCopy(int nSteps, int nx, int ny)
   size_t size = nx * ny * sizeof(int);
 
   // Allocate Unified Memory
-  hipMallocManaged((void**)&A, size);
+  hipMallocManaged((void **)&A, size);
 
   // Start timer and begin stepping loop
   clock_t tStart = clock();
-  for(unsigned int i = 0; i < nSteps; i++)
-  {
+  for (unsigned int i = 0; i < nSteps; i++) {
     /* The order of calls inside this loop represent an optimal
      * workflow of a GPU accelerated program where all oprations
      * are performed using device (ie, recurring memcopy is avoided):
@@ -324,9 +307,7 @@ void unifiedMemNoCopy(int nSteps, int nx, int ny)
     hipMemset(A, 0, size);
 
     // Launch GPU kernel
-    hipLaunchKernelGGL(hipKernel,
-      gridsize, BLOCKSIZE, 0, 0,
-      A, nx, ny);
+    hipLaunchKernelGGL(hipKernel, gridsize, BLOCKSIZE, 0, 0, A, nx, ny);
   }
   // Prefetch data from device to host
   hipMemPrefetchAsync(A, size, hipCpuDeviceId, 0);
@@ -336,15 +317,15 @@ void unifiedMemNoCopy(int nSteps, int nx, int ny)
 
   // Check results and print timings
   clock_t tStop = clock();
-  checkResults(A, nx, ny, "UnifiedMemNoCopy", (double)(tStop - tStart) / CLOCKS_PER_SEC);
+  checkResults(A, nx, ny, "UnifiedMemNoCopy",
+               (double)(tStop - tStart) / CLOCKS_PER_SEC);
 
   // Free Unified Memory array
   hipFree(A);
 }
 
 /* The main function */
-int main(int argc, char* argv[])
-{
+int main(int argc, char *argv[]) {
   // Set the number of steps and 2D grid dimensions
   int nSteps = 100, nx = 8000, ny = 2000;
 
